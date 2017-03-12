@@ -9,6 +9,7 @@ from matplotlib.backends.backend_webagg_core import \
 from matplotlib.figure import Figure
 from matplotlib._pylab_helpers import Gcf
 import json
+from . import spectra_plotter
 
 
 class MplJsHandler(tornado.web.RequestHandler):
@@ -23,6 +24,11 @@ class IndexHandler(tornado.web.RequestHandler):
         self.render('index.html')
 
 
+class IndexRedirectHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.redirect(self.reverse_url('index'))
+
+
 class SpectraViewHandler(tornado.web.RequestHandler):
     async def get(self):
         location = self.get_argument('location', 'filesystem')
@@ -35,20 +41,12 @@ class SpectraViewHandler(tornado.web.RequestHandler):
         if len(spectra_list) == 0:
             raise tornado.web.HTTPError(400, reason='No spectrum selected')
         # check for location
-        if location == 'filesystem':
-            print('filesystem')
-        elif location == 'jobs':
-            print('jobs')
-        else:
+        if location not in ['filesystem', 'jobs']:
             raise tornado.web.HTTPError(400, reason='Unknown location: "{}"'.format(location))
         fig = Figure()
-        ax = fig.add_subplot(111)
-        import numpy as np
-        t = np.arange(-5., 5., 0.2)
-        ax.plot(t, t ** 2)
-        ax.plot(t, t ** 3)
-        ax.plot(t, t ** 4)
-        ax.set_title('Some title')
+        axes = fig.add_subplot(111)
+        spectra_plotter.plot_spectra(axes, spectra_list, location)
+        axes.legend()
         fig_num = id(fig)
         manager = new_figure_manager_given_figure(fig_num, fig)
         Gcf.set_active(manager)
@@ -112,6 +110,8 @@ class DownloadHandler(tornado.web.RequestHandler):
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
+            tornado.web.URLSpec(r'/', IndexRedirectHandler),
+            tornado.web.URLSpec(r'/viewer', IndexRedirectHandler),
             tornado.web.URLSpec(r'/viewer/', IndexHandler, name='index'),
             tornado.web.URLSpec(r'/viewer/mpl.js', MplJsHandler, name='mpl'),
             tornado.web.URLSpec(r'/viewer/view', SpectraViewHandler, name='spectra'),
