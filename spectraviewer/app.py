@@ -11,6 +11,8 @@ from matplotlib._pylab_helpers import Gcf
 import json
 from . import spectra_plotter
 
+fig_counter = 0
+
 
 class MplJsHandler(tornado.web.RequestHandler):
     def get(self):
@@ -45,9 +47,14 @@ class SpectraViewHandler(tornado.web.RequestHandler):
             raise tornado.web.HTTPError(400, reason='Unknown location: "{}"'.format(location))
         fig = Figure()
         axes = fig.add_subplot(111)
+        axes.spectra_count = 0
         spectra_plotter.plot_spectra(axes, spectra_list, location)
-        axes.legend()
-        fig_num = id(fig)
+        if axes.spectra_count <= int(options.legend_hide_threshold):
+            axes.legend()
+        # fig_num = id(fig)
+        global fig_counter
+        fig_num = fig_counter
+        fig_counter += 1
         manager = new_figure_manager_given_figure(fig_num, fig)
         Gcf.set_active(manager)
         self.render('figure.html', host=self.request.host, fig_num=fig_num)
@@ -56,14 +63,19 @@ class SpectraViewHandler(tornado.web.RequestHandler):
 class WebSocketHandler(tornado.websocket.WebSocketHandler):
     def open(self, fig_num):
         self.supports_binary = True
+        self.fig_num = int(fig_num)
         self.manager = Gcf.get_fig_manager(int(fig_num))
         self.manager.add_web_socket(self)
         if hasattr(self, 'set_nodelay'):
             self.set_nodelay(True)
 
     def on_close(self):
-        # todo possible cleanup of figure
+        self.manager._cidgcf = None  # temporal fix for the current version callbacks
         self.manager.remove_web_socket(self)
+        Gcf.destroy(self.fig_num)
+        del self.manager
+        # import gc
+        # gc.collect()
 
     def on_message(self, message):
         message = json.loads(message)

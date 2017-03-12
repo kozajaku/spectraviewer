@@ -1,25 +1,56 @@
 from tornado.options import options
 import os
-from astropy.io import fits
+from astropy.io import fits, votable
+import warnings
+import csv
+import re
 
 
 class UnknownExtensionException(Exception):
     pass
 
 
-class FitsPlotter:
-    """Plotter class capable of plotting .fits spectrum files."""
+class AbstractPlotter:
+    """Abstract definition of plooter. Uses parsing ability of subclasses to obtain spectrum name,
+    and its x and y axes (wave and flux)."""
 
-    def plot(self, axes, file_name, file_path):
-        parsed_fits = FitsPlotter._parse_fits(file_path)
+    def plot(self, axes, file_name, file_path, **kwargs):
+        parsed_fits = self._parse_spectrum_file(file_path)
         name = file_name
         if parsed_fits['name']:
             name = '{}: {}'.format(name, parsed_fits['name'])
         axes.plot(parsed_fits['wave'], parsed_fits['flux'], label=name)
-        return True
+        axes.spectra_count += 1
 
-    @staticmethod
-    def _parse_fits(file):
+
+class VotPlotter(AbstractPlotter):
+    """Plotter class capable of plotting .vot spectrum files (either binary or text column based)"""
+
+    def _parse_spectrum_file(self, file):
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            vot = votable.parse(file)
+        table = vot.get_first_table()
+        data = table.array
+        wave = data['spectral']
+        flux = data['flux']
+        try:
+            name = table.get_field_by_id_or_name('ssa_targname').value
+            if type(name) is bytes:
+                name = name.decode()
+        except AttributeError:
+            name = None
+        return {
+            'name': name,
+            'wave': wave,
+            'flux': flux
+        }
+
+
+class FitsPlotter(AbstractPlotter):
+    """Plotter class capable of plotting .fits spectrum files."""
+
+    def _parse_spectrum_file(self, file):
         with fits.open(file) as hdulist:
             for hdu in hdulist:
                 if hdu.data is None:
@@ -46,9 +77,49 @@ class FitsPlotter:
         }
 
 
-plotter_mapping = {
+class CsvPlotter:
+    """Plotter class capable of plotting multiple spectra from the single csv file."""
+
+    def plot(self, axes, file_name, file_path, meta_file=None, **kwargs):
+        # parse wave from meta file if any
+        wave = None
+        if meta_file:
+            raise NotImplementedError  # todo
+        with open(file_path, newline='') as csvfile:
+            line = csvfile.readline()
+            csvfile.seek(0)
+            # find out delimiter
+            if line.count(' ') > line.count(','):
+                delimiter = ' '
+            else:
+                delimiter = ','
+            first = line.partition(delimiter)[0]
+            if re.match(r'^[a-zA-Z].*$', first):
+                names = True
+            else:
+                names = False
+            csv_reader = csv.reader(csvfile, delimiter=delimiter)
+            counter = 0
+            for spectrum in csv_reader:
+                if names:
+                    name = spectrum[0]
+                    flux = spectrum[1:]
+                else:
+                    name = '{}: #{}'.format(file_name, counter)
+                    counter += 1
+                    flux = spectrum
+                if wave:
+                    axes.plot(wave, flux, label=name)
+                else:
+                    axes.plot(flux, label=name)
+                axes.spectra_count += 1
+
+
+PLOTTER_MAPPING = {
     'fits': FitsPlotter(),
-    'fit': FitsPlotter()
+    'fit': FitsPlotter(),
+    'vot': VotPlotter(),
+    'csv': CsvPlotter()
 }
 
 
@@ -98,7 +169,7 @@ def plot_spectra(axes, file_list, location):
                              .format(f[0], f[1]))
         # try to find out plotter
         ext = file_extension(f[0])
-        plotter = plotter_mapping.get(ext)
+        plotter = PLOTTER_MAPPING.get(ext)
         if plotter is None:
             raise UnknownExtensionException('Unknown spectrum file extension to plot: {}'
                                             .format(ext))
