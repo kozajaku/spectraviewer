@@ -11,8 +11,6 @@ from matplotlib._pylab_helpers import Gcf
 import json
 from . import spectra_plotter
 
-fig_counter = 0
-
 
 class MplJsHandler(tornado.web.RequestHandler):
     def get(self):
@@ -51,10 +49,7 @@ class SpectraViewHandler(tornado.web.RequestHandler):
         spectra_plotter.plot_spectra(axes, spectra_list, location)
         if axes.spectra_count <= int(options.legend_hide_threshold):
             axes.legend()
-        # fig_num = id(fig)
-        global fig_counter
-        fig_num = fig_counter
-        fig_counter += 1
+        fig_num = id(fig)
         manager = new_figure_manager_given_figure(fig_num, fig)
         manager._cidgcf = None  # temporal fix for the current version callbacks
         Gcf.set_active(manager)
