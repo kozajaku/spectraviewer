@@ -66,6 +66,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             self.set_nodelay(True)
 
     def on_close(self):
+        print('Clearing {}'.format(self.fig_num))
         self.manager.remove_web_socket(self)
         Gcf.destroy(self.fig_num)
         del self.manager
