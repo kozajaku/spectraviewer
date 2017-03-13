@@ -56,6 +56,7 @@ class SpectraViewHandler(tornado.web.RequestHandler):
         fig_num = fig_counter
         fig_counter += 1
         manager = new_figure_manager_given_figure(fig_num, fig)
+        manager._cidgcf = None  # temporal fix for the current version callbacks
         Gcf.set_active(manager)
         self.render('figure.html', host=self.request.host, fig_num=fig_num)
 
@@ -70,7 +71,6 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             self.set_nodelay(True)
 
     def on_close(self):
-        self.manager._cidgcf = None  # temporal fix for the current version callbacks
         self.manager.remove_web_socket(self)
         Gcf.destroy(self.fig_num)
         del self.manager

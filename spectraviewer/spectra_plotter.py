@@ -80,11 +80,8 @@ class FitsPlotter(AbstractPlotter):
 class CsvPlotter:
     """Plotter class capable of plotting multiple spectra from the single csv file."""
 
-    def plot(self, axes, file_name, file_path, meta_file=None, **kwargs):
+    def plot(self, axes, file_name, file_path, meta_wave=None, **kwargs):
         # parse wave from meta file if any
-        wave = None
-        if meta_file:
-            raise NotImplementedError  # todo
         with open(file_path, newline='') as csvfile:
             line = csvfile.readline()
             csvfile.seek(0)
@@ -108,8 +105,8 @@ class CsvPlotter:
                     name = '{}: #{}'.format(file_name, counter)
                     counter += 1
                     flux = spectrum
-                if wave:
-                    axes.plot(wave, flux, label=name)
+                if meta_wave is not None:
+                    axes.plot(meta_wave, flux, label=name)
                 else:
                     axes.plot(flux, label=name)
                 axes.spectra_count += 1
@@ -119,7 +116,8 @@ PLOTTER_MAPPING = {
     'fits': FitsPlotter(),
     'fit': FitsPlotter(),
     'vot': VotPlotter(),
-    'csv': CsvPlotter()
+    'csv': CsvPlotter(),
+    'xml': VotPlotter()
 }
 
 
@@ -140,6 +138,27 @@ def file_extension(filename):
     if len(ext) == 0:
         return None
     return ext
+
+
+def extract_meta_file(file):
+    """
+    Attempt to extract wave meta data from meta.xml file. This file should contain wave (x axis)
+    of spectra listed in csv files. The meta.xml file has a votable format.
+
+    :param file: Path to existing meta.xml file.
+    :return: Extracted list of wave values, None if the meta.xml is invalid.
+    """
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            vot = votable.parse(file)
+        table = vot.get_first_table()
+        data = table.array
+        wave = data['intensities']
+        return wave[0]
+    except Exception as ex:
+        print('meta.xml reading failed: ', ex)
+        return None
 
 
 def plot_spectra(axes, file_list, location):
@@ -163,10 +182,18 @@ def plot_spectra(axes, file_list, location):
     # map files to real locations as (filename, abspath)
     files = map(lambda x: (os.path.basename(x),
                            os.path.abspath(os.path.join(location_prefix, x))), file_list)
+    meta_wave = None
+    spectra_files = []
     for f in files:
         if not os.path.isfile(f[1]):
             raise ValueError('Spectrum file {} in location {} does not exist'
                              .format(f[0], f[1]))
+        # meta file detection
+        if f[0] == 'meta.xml':
+            meta_wave = extract_meta_file(f[1])
+        else:
+            spectra_files.append(f)
+    for f in spectra_files:
         # try to find out plotter
         ext = file_extension(f[0])
         plotter = PLOTTER_MAPPING.get(ext)
@@ -174,5 +201,5 @@ def plot_spectra(axes, file_list, location):
             raise UnknownExtensionException('Unknown spectrum file extension to plot: {}'
                                             .format(ext))
         # plot spectrum
-        plotter.plot(axes, *f)
+        plotter.plot(axes, *f, meta_wave=meta_wave)
     return axes
