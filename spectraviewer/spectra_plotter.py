@@ -161,6 +161,18 @@ def extract_meta_file(file):
         return None
 
 
+def path_mapper(location_prefix):
+    def submapper(path):
+        while path.startswith('/'):
+            path = path[1:]
+        if '..' in path:
+            raise ValueError('\'..\' path characters are forbidden')
+        return (os.path.basename(path),
+                os.path.abspath(os.path.join(location_prefix, path)))
+
+    return submapper
+
+
 def plot_spectra(axes, file_list, location):
     """
     Plot passed files into specified matplotlib axes.
@@ -180,15 +192,13 @@ def plot_spectra(axes, file_list, location):
         # unsupported option
         raise ValueError('Unsupported location option: {}'.format(location))
     # map files to real locations as (filename, abspath)
-    files = map(lambda x: (os.path.basename(x),
-                           os.path.abspath(os.path.join(location_prefix, x))), file_list)
+    files = map(path_mapper(location_prefix), file_list)
     meta_wave = None
     spectra_files = []
     for f in files:
         if not os.path.isfile(f[1]):
             raise ValueError('Spectrum file {} in location {} does not exist'
-                             .format(f[0], f[1]))
-        # meta file detection
+                             .format(f[0], f[1]))  # meta file detection
         if f[0] == 'meta.xml':
             meta_wave = extract_meta_file(f[1])
         else:
