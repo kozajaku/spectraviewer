@@ -12,14 +12,22 @@ import json
 from . import spectra_plotter
 
 
-class MplJsHandler(tornado.web.RequestHandler):
+class BaseHandler(tornado.web.RequestHandler):
+    def __init__(self, application, request, **kwargs):
+        super(BaseHandler, self).__init__(application, request)
+
+    def write_error(self, status_code, **kwargs):
+        self.render('error.html', status_code=status_code, error_message=self._reason)
+
+
+class MplJsHandler(BaseHandler):
     def get(self):
         self.set_header('Content-Type', 'application/javascript')
         js = FigureManagerWebAgg.get_javascript()
         self.write(js)
 
 
-class IndexHandler(tornado.web.RequestHandler):
+class IndexHandler(BaseHandler):
     def get(self):
         self.render('index.html')
 
@@ -29,7 +37,7 @@ class IndexRedirectHandler(tornado.web.RequestHandler):
         self.redirect(self.reverse_url('index'))
 
 
-class SpectraViewHandler(tornado.web.RequestHandler):
+class SpectraViewHandler(BaseHandler):
     async def get(self):
         location = self.get_argument('location', 'filesystem')
         spectra_arg = self.get_argument('spectra', None)
@@ -46,7 +54,11 @@ class SpectraViewHandler(tornado.web.RequestHandler):
         fig = Figure()
         axes = fig.add_subplot(111)
         axes.spectra_count = 0
-        spectra_plotter.plot_spectra(axes, spectra_list, location)
+        try:
+            spectra_plotter.plot_spectra(axes, spectra_list, location)
+        except Exception as ex:
+            print(ex)
+            raise tornado.web.HTTPError(400, reason=str(ex))
         if axes.spectra_count <= int(options.legend_hide_threshold):
             axes.legend()
         fig_num = id(fig)
@@ -93,7 +105,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             self.write_message(data)
 
 
-class DownloadHandler(tornado.web.RequestHandler):
+class DownloadHandler(BaseHandler):
     def get(self, fmt, fig_num):
         manager = Gcf.get_fig_manager(int(fig_num))
 
@@ -129,7 +141,7 @@ class Application(tornado.web.Application):
         settings = {
             'template_path': os.path.join(os.path.dirname(__file__), 'templates'),
             'static_path': os.path.join(os.path.dirname(__file__), 'static'),
-            'debug': True
+            'debug': False
             # xsrf_cookies=True,
         }
         super(Application, self).__init__(handlers, **settings)

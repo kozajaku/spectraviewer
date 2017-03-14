@@ -183,7 +183,7 @@ def plot_spectra(axes, file_list, location):
     :return: Passed axes where spectra have been plotted to.
     """
     if len(file_list) == 0:
-        raise ValueError('Empty file list')
+        raise ValueError('No supported spectrum file found')
     if location == 'filesystem':
         location_prefix = options.filesystem_path
     elif location == 'jobs':
@@ -203,6 +203,8 @@ def plot_spectra(axes, file_list, location):
             meta_wave = extract_meta_file(f[1])
         else:
             spectra_files.append(f)
+    if len(spectra_files) == 0:
+        raise ValueError('No supported spectrum file found')
     for f in spectra_files:
         # try to find out plotter
         ext = file_extension(f[0])
