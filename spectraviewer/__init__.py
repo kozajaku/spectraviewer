@@ -5,10 +5,11 @@ from tornado.options import define, options, parse_command_line
 
 define('port', default='7000')
 define('filesystem_path', default=os.environ.get('FILESYSTEM',
-                                                 '/home/radiokoza/Plocha/spectra'))  # todo change
+                                                 '/tmp/filesystem'))
 define('jobs_path', default=os.environ.get('JOBS',
-                                           '/home/radiokoza/Stažené'))  # todo change
+                                           '/tmp/jobs'))
 define('legend_hide_threshold', default='10')
+
 
 def main():
     parse_command_line()
