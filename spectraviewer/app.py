@@ -10,6 +10,7 @@ from matplotlib.figure import Figure
 from matplotlib._pylab_helpers import Gcf
 import json
 from . import spectra_plotter
+import traceback
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -57,7 +58,7 @@ class SpectraViewHandler(BaseHandler):
         try:
             spectra_plotter.plot_spectra(axes, spectra_list, location)
         except Exception as ex:
-            print(ex)
+            traceback.print_exc()
             raise tornado.web.HTTPError(400, reason=str(ex))
         if axes.spectra_count <= int(options.legend_hide_threshold):
             axes.legend()
