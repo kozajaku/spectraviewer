@@ -15,11 +15,14 @@ class AbstractPlotter:
     and its x and y axes (wave and flux)."""
 
     def plot(self, axes, file_name, file_path, **kwargs):
-        parsed_fits = self._parse_spectrum_file(file_path)
+        parsed_spectrum = self._parse_spectrum_file(file_path)
         name = file_name
-        if parsed_fits['name']:
-            name = '{}: {}'.format(name, parsed_fits['name'])
-        axes.plot(parsed_fits['wave'], parsed_fits['flux'], label=name)
+        if parsed_spectrum['name'] is not None:
+            name = '{}: {}'.format(name, parsed_spectrum['name'])
+        if parsed_spectrum['wave'] is not None:
+            axes.plot(parsed_spectrum['wave'], parsed_spectrum['flux'], label=name)
+        else:
+            axes.plot(parsed_spectrum['flux'], label=name)
         axes.spectra_count += 1
 
 
@@ -33,6 +36,7 @@ class VotPlotter(AbstractPlotter):
         table = vot.get_first_table()
         data = table.array
         wave = data['spectral']
+        print(wave)
         flux = data['flux']
         try:
             name = table.get_field_by_id_or_name('ssa_targname').value
@@ -56,13 +60,24 @@ class FitsPlotter(AbstractPlotter):
                 if hdu.data is None:
                     continue
                 # obtain name
-                name = hdu.header.get('object')
+                name = hdu.header.get('object', hdu.header.get('desig'))
                 naxis = hdu.header.get('naxis')
-                if naxis == 2:
+                if naxis == 2 and hdu.header.get('naxis2') == 5:
+                    flux = hdu.data[0]
+                    pix = hdu.header['crpix1']
+                    first = hdu.header['crval1']
+                    delta = hdu.header['cd1_1']
+                    if hdu.header['DC-FLAG'] == 0:
+                        # linear sampling
+                        wave = [10 ** first + (i - pix + 1) * 10 ** delta for i in range(len(flux))]
+                    else:
+                        # logarithmic sampling
+                        wave = [10 ** (first + (i - pix + 1) * delta) for i in range(len(flux))]
+                elif naxis == 2:
                     # tabledata
                     tbdata = hdu.data
-                    wave = tbdata.field(0).tolist()
-                    flux = tbdata.field(1).tolist()
+                    wave = tbdata['spectral']
+                    flux = tbdata['flux']
                 elif naxis == 1:
                     flux = hdu.data.tolist()
                     # wave must be mapped manually
