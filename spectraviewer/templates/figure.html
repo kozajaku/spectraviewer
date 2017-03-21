@@ -11,7 +11,8 @@
 
     $(document).ready(function() {
         var websocket_type = mpl.get_websocket_type();
-        var websocket = new websocket_type("ws://{{ host }}{{ reverse_url('ws', fig_num) }}");
+        var ws_protocol = (window.location.protocol === "https:") ? "wss" : "ws";
+        var websocket = new websocket_type(ws_protocol + "://{{ host }}{{ reverse_url('ws', fig_num) }}");
         var fig = new mpl.figure(
             {{ fig_num }},
             websocket,
