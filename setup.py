@@ -23,7 +23,6 @@ setup(
         'tornado>=4.4',
         'matplotlib>=2.0',
         'astropy>=1.3',
-        'pytest>=3.0',
     ],
     package_data={
         'spectraviewer': ['static/*', 'templates/*.html']

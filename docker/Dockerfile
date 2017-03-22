@@ -1,4 +1,4 @@
-FROM python:3.6
+FROM kozajaku/spectraviewer-base
 MAINTAINER kozajaku@fit.cvut.cz
 
 RUN set -ex \
