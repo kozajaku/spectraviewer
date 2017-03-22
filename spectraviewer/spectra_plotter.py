@@ -54,6 +54,25 @@ class VotPlotter(AbstractPlotter):
 class FitsPlotter(AbstractPlotter):
     """Plotter class capable of plotting .fits spectrum files."""
 
+    def _extract_wave(self, hdu, flux):
+        pix = int(hdu.header['crpix1'])
+        first = hdu.header['crval1']
+        try:
+            delta = hdu.header['cdelt1']
+        except KeyError:
+            delta = hdu.header['cd1_1']
+        try:
+            dc_flag = hdu.header['dc-flag']
+        except KeyError:
+            dc_flag = 0  # implicit linear sampling
+        if dc_flag == 0:
+            # linear sampling
+            wave = [first + (i - pix + 1) * delta for i in range(len(flux))]
+        else:
+            # logarithmic sampling
+            wave = [10 ** (first + (i - pix + 1) * delta) for i in range(len(flux))]
+        return wave
+
     def _parse_spectrum_file(self, file):
         with fits.open(file) as hdulist:
             for hdu in hdulist:
@@ -64,15 +83,7 @@ class FitsPlotter(AbstractPlotter):
                 naxis = hdu.header.get('naxis')
                 if naxis == 2 and hdu.header.get('naxis2') == 5:
                     flux = hdu.data[0]
-                    pix = hdu.header['crpix1']
-                    first = hdu.header['crval1']
-                    delta = hdu.header['cd1_1']
-                    if hdu.header['DC-FLAG'] == 0:
-                        # linear sampling
-                        wave = [10 ** first + (i - pix + 1) * 10 ** delta for i in range(len(flux))]
-                    else:
-                        # logarithmic sampling
-                        wave = [10 ** (first + (i - pix + 1) * delta) for i in range(len(flux))]
+                    wave = self._extract_wave(hdu, flux)
                 elif naxis == 2:
                     # tabledata
                     tbdata = hdu.data
@@ -87,11 +98,8 @@ class FitsPlotter(AbstractPlotter):
                     #     flux = tbdata[1]
                 elif naxis == 1:
                     flux = hdu.data.tolist()
-                    # wave must be mapped manually
-                    length = len(flux)
-                    start = hdu.header['crval1']
-                    delta = hdu.header['cdelt1']
-                    wave = [start + i * delta for i in range(length)]
+                    wave = self._extract_wave(hdu, flux)
+
         return {
             'name': name,
             'wave': wave,
