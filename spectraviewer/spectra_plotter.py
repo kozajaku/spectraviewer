@@ -76,8 +76,15 @@ class FitsPlotter(AbstractPlotter):
                 elif naxis == 2:
                     # tabledata
                     tbdata = hdu.data
-                    wave = tbdata['spectral']
+                    try:
+                        wave = tbdata['spectral']
+                    except KeyError:
+                        wave = tbdata['wave']
                     flux = tbdata['flux']
+                    # except KeyError:
+                    #     # fall back to non-tabledata format
+                    #     wave = tbdata[0]
+                    #     flux = tbdata[1]
                 elif naxis == 1:
                     flux = hdu.data.tolist()
                     # wave must be mapped manually
