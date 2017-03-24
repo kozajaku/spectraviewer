@@ -42,6 +42,7 @@ class SpectraViewHandler(BaseHandler):
     async def get(self):
         location = self.get_argument('location', 'filesystem')
         spectra_arg = self.get_argument('spectra', None)
+        prefix_arg = self.get_argument('prefix', '.')  # optional parameter
         if not spectra_arg:
             raise tornado.web.HTTPError(400, reason='Missing "spectra" query parameter')
         # expand spectra list
@@ -56,7 +57,7 @@ class SpectraViewHandler(BaseHandler):
         axes = fig.add_subplot(111)
         axes.spectra_count = 0
         try:
-            spectra_plotter.plot_spectra(axes, spectra_list, location)
+            spectra_plotter.plot_spectra(axes, spectra_list, location, prefix_arg)
         except Exception as ex:
             traceback.print_exc()
             raise tornado.web.HTTPError(400, reason=str(ex))

@@ -203,13 +203,15 @@ def path_mapper(location_prefix):
     return submapper
 
 
-def plot_spectra(axes, file_list, location):
+def plot_spectra(axes, file_list, location, prefix='.'):
     """
     Plot passed files into specified matplotlib axes.
 
     :param axes: Matplotlib axes which spectra should be plotted to.
     :param file_list: List of file paths containing spectra. The paths are absolute paths inside the specified location.
     :param location: Spectra location. Currently supported are filesystem and jobs.
+    :param prefix: Optional parameter. Every spectrum file's path should be prefixed by the path contained in
+    this parameter.
     :return: Passed axes where spectra have been plotted to.
     """
     if len(file_list) == 0:
@@ -221,6 +223,12 @@ def plot_spectra(axes, file_list, location):
     else:
         # unsupported option
         raise ValueError('Unsupported location option: {}'.format(location))
+    # append prefix parameter to the location_prefix
+    if '..' in prefix:
+        raise ValueError('\'..\' path characters are forbidden')
+    while prefix.startswith('/'):
+        prefix = prefix[1:]
+    location_prefix = os.path.join(location_prefix, prefix)
     # map files to real locations as (filename, abspath)
     files = map(path_mapper(location_prefix), file_list)
     meta_wave = None
