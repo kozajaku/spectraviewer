@@ -4,13 +4,17 @@ import tornado.web
 import tornado.websocket
 from tornado.options import options
 from matplotlib.backends.backend_webagg_core import \
-    FigureManagerWebAgg, \
+    FigureManagerWebAgg, NavigationToolbar2WebAgg, \
     new_figure_manager_given_figure
 from matplotlib.figure import Figure
 from matplotlib._pylab_helpers import Gcf
 import json
 from . import spectra_plotter
 import traceback
+
+# disable back and forward buttons
+NavigationToolbar2WebAgg.toolitems = list(filter(lambda x: x[0] not in ('Back', 'Forward'),
+                                                 NavigationToolbar2WebAgg.toolitems))
 
 
 class BaseHandler(tornado.web.RequestHandler):
