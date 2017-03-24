@@ -3,6 +3,7 @@ import io
 import tornado.web
 import tornado.websocket
 from tornado.options import options
+from tornado.ioloop import PeriodicCallback
 from matplotlib.backends.backend_webagg_core import \
     FigureManagerWebAgg, NavigationToolbar2WebAgg, \
     new_figure_manager_given_figure
@@ -82,9 +83,15 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
         self.manager.add_web_socket(self)
         if hasattr(self, 'set_nodelay'):
             self.set_nodelay(True)
+        self.ping_callback = PeriodicCallback(self.send_ping, 10000)
+        self.ping_callback.start()
+
+    def send_ping(self):
+        self.ping(b"ping")
 
     def on_close(self):
         print('Clearing {}'.format(self.fig_num))
+        self.ping_callback.stop()
         self.manager.remove_web_socket(self)
         Gcf.destroy(self.fig_num)
         del self.manager
