@@ -85,6 +85,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             self.set_nodelay(True)
         self.ping_callback = PeriodicCallback(self.send_ping, 10000)
         self.ping_callback.start()
+        self.manager.toolbar.zoom()
 
     def send_ping(self):
         self.ping(b"ping")
