@@ -7,6 +7,7 @@ from tornado.ioloop import PeriodicCallback
 from matplotlib.backends.backend_webagg_core import \
     FigureManagerWebAgg, NavigationToolbar2WebAgg, \
     new_figure_manager_given_figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib._pylab_helpers import Gcf
 import json
@@ -73,6 +74,31 @@ class SpectraViewHandler(BaseHandler):
         manager._cidgcf = None  # temporal fix for the current version callbacks
         Gcf.set_active(manager)
         self.render('figure.html', host=self.request.host, fig_num=fig_num)
+
+
+class PngSpectrumPlotHandler(BaseHandler):
+    async def get(self):
+        location = self.get_argument('location', 'filesystem')
+        spectrum_arg = self.get_argument('spectrum', None)
+        if not spectrum_arg:
+            raise tornado.web.HTTPError(400, reason="Missing spectrum parameter")
+        if location not in ['filesystem', 'jobs']:
+            raise tornado.web.HTTPError(400, reason="Unknown location: \"{}\"".format(location))
+        self.set_header('Content-Type', 'image/png')
+        fig = Figure()
+        canvas = FigureCanvas(fig)
+        axes = fig.add_subplot(111)
+        try:
+            spectra_plotter.plot_spectra(axes, [spectrum_arg], location)
+        except Exception as ex:
+            traceback.print_exc()
+            raise tornado.web.HTTPError(400, reason=str(ex))
+        axes.set_title(spectrum_arg.split('/')[-1])
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png")
+        buf.seek(0)
+        self.write(buf.getvalue())
+        buf.close()
 
 
 class WebSocketHandler(tornado.websocket.WebSocketHandler):
@@ -151,6 +177,7 @@ class Application(tornado.web.Application):
             tornado.web.URLSpec(r'/viewer/view', SpectraViewHandler, name='spectra'),
             tornado.web.URLSpec(r'/viewer/([0-9]+)/ws', WebSocketHandler, name='ws'),
             tornado.web.URLSpec(r'/viewer/download.([a-z0-9.]+)/([0-9]+)', DownloadHandler, name='download'),
+            tornado.web.URLSpec(r'/api/png', PngSpectrumPlotHandler, name='png-plotter'),
         ]
         settings = {
             'template_path': os.path.join(os.path.dirname(__file__), 'templates'),

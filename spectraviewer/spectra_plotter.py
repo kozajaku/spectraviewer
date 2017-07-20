@@ -203,7 +203,7 @@ def path_mapper(location_prefix):
     return submapper
 
 
-def plot_spectra(axes, file_list, location, prefix='.'):
+def plot_spectra(axes, file_list, location='filesystem', prefix='.'):
     """
     Plot passed files into specified matplotlib axes.
 
@@ -228,6 +228,8 @@ def plot_spectra(axes, file_list, location, prefix='.'):
         raise ValueError('\'..\' path characters are forbidden')
     while prefix.startswith('/'):
         prefix = prefix[1:]
+    if not hasattr(axes, 'spectra_count'):
+        axes.spectra_count = 0
     location_prefix = os.path.join(location_prefix, prefix)
     # map files to real locations as (filename, abspath)
     files = map(path_mapper(location_prefix), file_list)
